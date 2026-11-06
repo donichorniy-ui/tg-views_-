@@ -1,8 +1,12 @@
 services:
-  - type: worker
-    name: tg-views-bot
+  - type: web
+    name: tg-views-controller
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python teleview.py --mode auto --channel Uzusto_uz --post 14"
+    startCommand: "python app.py"
     plan: free
-    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: MY_USER_ID
+        sync: false
