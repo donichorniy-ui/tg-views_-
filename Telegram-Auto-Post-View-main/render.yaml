@@ -1,0 +1,8 @@
+services:
+  - type: worker
+    name: tg-views-bot
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python teleview.py --mode auto --channel Uzusto_uz --post 14"
+    plan: free
+    autoDeploy: true
