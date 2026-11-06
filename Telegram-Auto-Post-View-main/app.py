@@ -1,13 +1,15 @@
 import os
 import threading
 import subprocess
+import time
+import requests
 from flask import Flask
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- Конфигурация ---
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
-ALLOWED_USER_ID = int(os.environ.get("MY_USER_ID", 0)) # Сюда впишете ваш ID
+ALLOWED_USER_ID = int(os.environ.get("MY_USER_ID", 0))
 
 # --- Flask (чтобы Render не убивал процесс) ---
 app = Flask(__name__)
@@ -20,6 +22,17 @@ def health():
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
+# --- "Пиналка" для Render ---
+def keep_alive():
+    url = "https://tg-views-bot.onrender.com/health"
+    while True:
+        try:
+            requests.get(url, timeout=10)
+            print("Pinged self to keep alive.")
+        except Exception as e:
+            print(f"Ping failed: {e}")
+        time.sleep(300) # Ждать 5 минут (300 секунд)
 
 # --- Логика бота ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -41,7 +54,6 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Это не похоже на ссылку.")
         return
 
-    # Парсим ссылку
     try:
         parts = text.split("t.me/")[1].split("/")
         channel = parts[0]
@@ -52,8 +64,6 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"Запускаю накрутку для @{channel}, пост {post}. Ждите...")
 
-    # Запускаем teleview.py в отдельном процессе
-    # Важно: файл teleview.py должен лежать в той же папке
     try:
         subprocess.Popen(
             ["python", "teleview.py", "--mode", "auto", "--channel", channel, "--post", post],
@@ -66,6 +76,9 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     # Запускаем Flask в фоне
     threading.Thread(target=run_flask, daemon=True).start()
+
+    # Запускаем "пиналку" в фоне
+    threading.Thread(target=keep_alive, daemon=True).start()
 
     # Запускаем бота
     application = Application.builder().token(TOKEN).build()
